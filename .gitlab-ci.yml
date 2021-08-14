@@ -1,0 +1,63 @@
+stages:
+  - build:nodejs
+  - build:java
+  - test
+  - deploy
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+
+build angular:
+  stage: build:nodejs
+  only:
+    - /^release/.*$/
+  image: node:14.17.3-alpine
+  artifacts:
+    paths:
+      - build
+  cache:
+    key:
+      files:
+        - package.json
+    paths:
+      - ./node_modules
+#      - ./.npm
+  script:
+    - yarn install && yarn build:stag
+
+
+build war:
+  stage: build:java
+  only:
+    - /^release/.*$/
+  needs:
+    - "build angular"
+  image: maven:3.6-openjdk-8-slim
+  artifacts:
+    paths:
+      - ./distribution/target/*.war
+  cache:
+    key:
+      files:
+        - ./distribution/pom.xml
+    paths:
+      - ./.m2/repository
+  script:
+    - mvn package -e
+
+
+deploy to shore dev:
+  stage: deploy
+  only:
+    - release/dev
+  image: alpine:3.14
+  environment:
+    name: development
+    url: https://mackvmoshore.solverminds.net/
+  script:
+    - apk add --update openssh sshpass
+    - cd distribution/target
+    - WAR_FILE=$(find . -name "*.war")
+    - if [[ -z "$WAR_FILE" ]]; then { echo "War artifact is not found" ; exit 1; } fi
+    - sshpass -p $SHORE_SSH_PASSWORD scp -P $SHORE_SSH_PORT -o StrictHostKeyChecking=no $WAR_FILE $SHORE_SSH_HOST:$SHORE_FOLDER/standalone/deployments/GSI

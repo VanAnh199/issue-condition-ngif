@@ -1,0 +1,52 @@
+image: quay.io/vmoteam/ci-node:v12-gitops
+pipelines:
+  # ------- filter build with branch
+  branches:
+    release/dev:
+      - step:
+          name: dev
+          deployment: dev
+          caches:
+            - nodecaching
+            - docker
+          script:
+            # manual config env (from file & bitbucket variable)
+            - APPLICATION=gso-webapp
+            - ENV=dev
+            - BRANCH=release/dev
+            - VERSION=$ENV-$(git rev-parse --short HEAD)
+            - IMAGE_FIX=$DOCKER_REGISTRY_HOST/$APPLICATION:$ENV
+            - IMAGE_BACKUP=$DOCKER_REGISTRY_HOST/$APPLICATION:$VERSION
+
+            # install & build
+            - yarn
+            - yarn build:$ENV
+
+            # build docker application
+            - docker build -t $IMAGE_FIX -f .docker/$ENV.dockerfile .
+            - docker tag $IMAGE_FIX $IMAGE_BACKUP
+
+            # ecr auth
+            - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $DOCKER_REGISTRY_HOST
+
+            # sync container to docker-registry
+            - docker push $IMAGE_FIX
+            - docker push $IMAGE_BACKUP
+
+            # gitops process
+            - git checkout $BRANCH
+            - VERSION=$VERSION yq eval --inplace '.image.tag = env(VERSION)' helm/$APPLICATION/values/$ENV.values.yaml
+            - LINK="https://${GIT_USER}:${GIT_APP_CREDENTIAL}@bitbucket.org/vmodev/${APPLICATION}.git"
+            - git add -A
+            - git commit -m "[BOT] Update image tag [skip ci]"
+            - git push $LINK
+              # -- sync by argocd
+            - argocd login $ARGO_SERVER:443 --grpc-web --grpc-web-root-path / --username $ARGO_ACCOUNT --password $ARGO_PASS
+            - argocd app sync --async -l app.kubernetes.io/name=$APPLICATION,app.kubernetes.io/env=$ENV
+          services:
+            - docker
+
+definitions:
+  # caching node_modules with yarn config
+  caches:
+    nodecaching: ./node_modules

@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<jboss-deployment-structure xmlns="urn:jboss:deployment-structure:1.1">
+    <deployment>
+<!--        <dependencies>-->
+<!--            <module name="deployment.MAC.war" />-->
+<!--            <module name="deployment.macknotification.war" />-->
+<!--        </dependencies>-->
+
+        <exclusions>
+<!--            conflict object mapper from jackson-->
+            <module name="com.fasterxml.jackson.core.jackson-annotations" />
+            <module name="com.fasterxml.jackson.core.jackson-core" />
+            <module name="com.fasterxml.jackson.core.jackson-databind" />
+            <module name="com.fasterxml.jackson.jaxrs.jackson-jaxrs-json-provider" />
+            <module name="org.jboss.resteasy.resteasy-jackson2-provider" />
+            <module name="org.slf4j" />
+            <module name="svm.json.jsonpath" />
+
+<!--            conflict string util from commong lang3-->
+            <module name="svm.apache" />
+            <module name="svm.jbpm" />
+
+<!--            conflict gson builder when gson auto config-->
+            <module name="svm.json.gson" />
+
+<!--            <module name="org.jboss.resteasy.resteasy-validator-provider-11"/>-->
+<!--            <module name="org.jboss.resteasy.resteasy-hibernatevalidator-provider"/>-->
+<!--            <module name="org.hibernate.validator" />-->
+<!--            <module name="javax.validation.api" />-->
+            <module name="org.hibernate" slot="main"/>
+<!--            <module name="javax.faces.api"/>-->
+        </exclusions>
+    </deployment>
+</jboss-deployment-structure>
